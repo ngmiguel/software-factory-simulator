@@ -49,7 +49,7 @@ Auth · Users · Companies · Teams · Projects · Developers · Clients · Prod
 
 ```bash
 # À venir — Phase 2
-git clone https://github.com/<votre-username>/software-factory-simulator.git
+git clone https://github.com/ngmiguel/software-factory-simulator.git
 cd software-factory-simulator
 docker compose up -d
 pnpm install
