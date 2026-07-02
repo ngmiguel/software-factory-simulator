@@ -1,0 +1,508 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth & Users ───────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  CEO
+  CTO
+  ENGINEERING_MANAGER
+  DEVELOPER
+  QA
+  DEVOPS
+  CLIENT
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  role          Role      @default(DEVELOPER)
+  isActive      Boolean   @default(true) @map("is_active")
+  emailVerified Boolean   @default(false) @map("email_verified")
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  refreshTokens RefreshToken[]
+  company       Company?       @relation("CompanyOwner")
+  developer     Developer?
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ─── Company ────────────────────────────────────────────────
+
+model Company {
+  id              String   @id @default(cuid())
+  name            String
+  description     String?
+  industry        String?
+  budget          Float    @default(1000000)
+  reputation      Float    @default(50)
+  technicalDebt   Float    @default(0) @map("technical_debt")
+  simulationSpeed Int      @default(1) @map("simulation_speed")
+  isSimulationActive Boolean @default(false) @map("is_simulation_active")
+  ownerId         String   @unique @map("owner_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  owner        User          @relation("CompanyOwner", fields: [ownerId], references: [id])
+  teams        Team[]
+  projects     Project[]
+  clients      Client[]
+  developers   Developer[]
+  incidents    Incident[]
+  simulations  SimulationRun[]
+  recruitments Recruitment[]
+
+  @@index([ownerId])
+  @@map("companies")
+}
+
+// ─── Teams ──────────────────────────────────────────────────
+
+enum TeamType {
+  DEVELOPMENT
+  QA
+  DEVOPS
+  DESIGN
+  PRODUCT
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  type        TeamType @default(DEVELOPMENT)
+  description String?
+  velocity    Float    @default(0)
+  morale      Float    @default(75)
+  companyId   String   @map("company_id")
+  leadId      String?  @map("lead_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lead       Developer?  @relation("TeamLead", fields: [leadId], references: [id])
+  members    Developer[] @relation("TeamMembers")
+  projects   Project[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("teams")
+}
+
+// ─── Developers ─────────────────────────────────────────────
+
+enum Seniority {
+  JUNIOR
+  MID
+  SENIOR
+  LEAD
+  PRINCIPAL
+}
+
+model Developer {
+  id            String    @id @default(cuid())
+  userId        String?   @unique @map("user_id")
+  companyId     String    @map("company_id")
+  teamId        String?   @map("team_id")
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  seniority     Seniority @default(JUNIOR)
+  salary        Float     @default(50000)
+  motivation    Float     @default(75)
+  burnoutRisk   Float     @default(0) @map("burnout_risk")
+  velocity      Float     @default(5)
+  skills        Json      @default("[]")
+  isAvailable   Boolean   @default(true) @map("is_available")
+  hiredAt       DateTime  @default(now()) @map("hired_at")
+  leftAt        DateTime? @map("left_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user         User?      @relation(fields: [userId], references: [id])
+  company      Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  team         Team?      @relation("TeamMembers", fields: [teamId], references: [id])
+  ledTeams     Team[]     @relation("TeamLead")
+  assignedTasks Task[]    @relation("TaskAssignee")
+  reportedBugs  Bug[]      @relation("BugReporter")
+  assignedBugs  Bug[]      @relation("BugAssignee")
+
+  @@index([companyId])
+  @@index([teamId])
+  @@map("developers")
+}
+
+// ─── Clients & Products ─────────────────────────────────────
+
+model Client {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  satisfaction Float    @default(70)
+  companyId    String   @map("company_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  @@index([companyId])
+  @@map("clients")
+}
+
+// ─── Projects ─────────────────────────────────────────────────
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model Project {
+  id            String        @id @default(cuid())
+  name          String
+  description   String?
+  status        ProjectStatus @default(PLANNING)
+  priority      Int           @default(3)
+  budget        Float         @default(0)
+  deadline      DateTime?
+  technicalDebt Float         @default(0) @map("technical_debt")
+  progress      Float         @default(0)
+  companyId     String        @map("company_id")
+  clientId      String?       @map("client_id")
+  teamId        String?       @map("team_id")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client   Client?  @relation(fields: [clientId], references: [id])
+  team     Team?    @relation(fields: [teamId], references: [id])
+  sprints  Sprint[]
+  tasks    Task[]
+  bugs     Bug[]
+  releases Release[]
+
+  @@index([companyId])
+  @@index([status])
+  @@map("projects")
+}
+
+// ─── Sprints ──────────────────────────────────────────────────
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model Sprint {
+  id          String       @id @default(cuid())
+  name        String
+  goal        String?
+  status      SprintStatus @default(PLANNED)
+  velocity    Float        @default(0)
+  plannedPoints Float      @default(0) @map("planned_points")
+  completedPoints Float    @default(0) @map("completed_points")
+  startDate   DateTime?    @map("start_date")
+  endDate     DateTime?    @map("end_date")
+  projectId   String       @map("project_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   Task[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("sprints")
+}
+
+// ─── Tasks ────────────────────────────────────────────────────
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+  BLOCKED
+}
+
+model Task {
+  id           String     @id @default(cuid())
+  title        String
+  description  String?
+  status       TaskStatus @default(BACKLOG)
+  storyPoints  Int        @default(1) @map("story_points")
+  priority     Int        @default(3)
+  projectId    String     @map("project_id")
+  sprintId     String?    @map("sprint_id")
+  assigneeId   String?    @map("assignee_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  project  Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sprint   Sprint?    @relation(fields: [sprintId], references: [id])
+  assignee Developer? @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  bugs     Bug[]
+
+  @@index([projectId])
+  @@index([sprintId])
+  @@index([status])
+  @@map("tasks")
+}
+
+// ─── Bugs ─────────────────────────────────────────────────────
+
+enum BugSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum BugStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  WONT_FIX
+}
+
+model Bug {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  severity    BugSeverity @default(MEDIUM)
+  status      BugStatus   @default(OPEN)
+  projectId   String      @map("project_id")
+  taskId      String?     @map("task_id")
+  reporterId  String?     @map("reporter_id")
+  assigneeId  String?     @map("assignee_id")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  resolvedAt  DateTime?   @map("resolved_at")
+
+  project  Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task     Task?      @relation(fields: [taskId], references: [id])
+  reporter Developer? @relation("BugReporter", fields: [reporterId], references: [id])
+  assignee Developer? @relation("BugAssignee", fields: [assigneeId], references: [id])
+
+  @@index([projectId])
+  @@index([severity])
+  @@index([status])
+  @@map("bugs")
+}
+
+// ─── Releases ─────────────────────────────────────────────────
+
+enum ReleaseStatus {
+  PLANNED
+  IN_PROGRESS
+  DEPLOYED
+  FAILED
+  ROLLED_BACK
+}
+
+model Release {
+  id          String        @id @default(cuid())
+  version     String
+  notes       String?
+  status      ReleaseStatus @default(PLANNED)
+  projectId   String        @map("project_id")
+  deployedAt  DateTime?     @map("deployed_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("releases")
+}
+
+// ─── Incidents ────────────────────────────────────────────────
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+model Incident {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  severity    IncidentSeverity @default(MEDIUM)
+  status      IncidentStatus   @default(OPEN)
+  companyId   String           @map("company_id")
+  resolvedAt  DateTime?        @map("resolved_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([status])
+  @@map("incidents")
+}
+
+// ─── Simulation ───────────────────────────────────────────────
+
+enum SimulationEventType {
+  BUG_DISCOVERED
+  SPRINT_DELAY
+  DEVELOPER_BURNOUT
+  CLIENT_REQUEST
+  PRIORITY_CHANGE
+  INCIDENT
+  TECHNICAL_DEBT_INCREASE
+  DEVELOPER_DEPARTURE
+  SKILL_EVOLUTION
+  RECRUITMENT_COMPLETED
+}
+
+model SimulationRun {
+  id        String   @id @default(cuid())
+  companyId String   @map("company_id")
+  tick      Int      @default(0)
+  startedAt DateTime @default(now()) @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+  isActive  Boolean  @default(true) @map("is_active")
+
+  company Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  events  SimulationEvent[]
+
+  @@index([companyId])
+  @@map("simulation_runs")
+}
+
+model SimulationEvent {
+  id        String              @id @default(cuid())
+  runId     String              @map("run_id")
+  type      SimulationEventType
+  payload   Json                @default("{}")
+  tick      Int
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  run SimulationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+  @@index([type])
+  @@map("simulation_events")
+}
+
+// ─── Recruitment ──────────────────────────────────────────────
+
+enum RecruitmentStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Recruitment {
+  id          String            @id @default(cuid())
+  position    String
+  seniority   Seniority
+  salary      Float
+  status      RecruitmentStatus @default(OPEN)
+  companyId   String            @map("company_id")
+  startedAt   DateTime          @default(now()) @map("started_at")
+  completedAt DateTime?         @map("completed_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([status])
+  @@map("recruitments")
+}
+
+// ─── Notifications ────────────────────────────────────────────
+
+enum NotificationType {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+  SIMULATION
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false) @map("is_read")
+  metadata  Json             @default("{}")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+// ─── Audit Logs ───────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  action     String
+  entity     String
+  entityId   String?  @map("entity_id")
+  metadata   Json     @default("{}")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
