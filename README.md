@@ -60,11 +60,11 @@ pnpm dev
 
 | Phase | Description | Statut |
 |-------|-------------|--------|
-| 0 | Fondations — repo, documentation, conventions | En cours |
-| 1 | Monorepo — structure, tooling (ESLint, Prettier, Husky) | À venir |
-| 2 | Infrastructure — Docker, PostgreSQL, Redis | À venir |
-| 3 | Backend — NestJS, Clean Architecture, Prisma | À venir |
-| 4 | Auth — JWT, Refresh Token, RBAC | À venir |
+| 0 | Fondations — repo, documentation, conventions | Terminé |
+| 1 | Monorepo — structure, tooling (ESLint, Prettier, Husky) | Terminé |
+| 2 | Infrastructure — Docker, PostgreSQL, Redis | Terminé |
+| 3 | Backend — NestJS, Clean Architecture, Prisma | Terminé |
+| 4 | Auth — JWT, Refresh Token, RBAC | Terminé |
 | 5 | Domaine core — Companies, Teams, Developers | À venir |
 | 6 | Projets — Backlog, Sprints, Releases | À venir |
 | 7 | Moteur de simulation | À venir |
