@@ -17,7 +17,7 @@ export interface UserProps {
   updatedAt?: Date;
 }
 
-export class User extends AggregateRoot {
+export class User extends AggregateRoot<UserProps> {
   private props: UserProps;
   private readonly _id: UniqueEntityId;
 
