@@ -16,6 +16,8 @@ import { PasswordHasherService } from './infrastructure/services/password-hasher
 import { JwtTokenService } from './infrastructure/services/jwt-token.service';
 import { JwtStrategy } from './infrastructure/strategies/jwt.strategy';
 import { AuthController } from './presentation/auth.controller';
+import { JwtAuthGuard } from './presentation/guards/jwt-auth.guard';
+import { RolesGuard } from './presentation/guards/roles.guard';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { AuthController } from './presentation/auth.controller';
     PasswordHasherService,
     JwtTokenService,
     JwtStrategy,
+    JwtAuthGuard,
+    RolesGuard,
     {
       provide: USER_REPOSITORY,
       useClass: PrismaUserRepository,
@@ -49,6 +53,13 @@ import { AuthController } from './presentation/auth.controller';
       useClass: PrismaRefreshTokenRepository,
     },
   ],
-  exports: [USER_REPOSITORY, PasswordHasherService, JwtModule, PassportModule],
+  exports: [
+    USER_REPOSITORY,
+    PasswordHasherService,
+    JwtModule,
+    PassportModule,
+    JwtAuthGuard,
+    RolesGuard,
+  ],
 })
 export class AuthModule {}

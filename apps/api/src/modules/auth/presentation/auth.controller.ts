@@ -2,20 +2,28 @@ import {
   Body,
   ConflictException,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
   BadRequestException,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { Role } from '@prisma/client';
 import { RegisterUserUseCase } from '../../application/use-cases/register-user.use-case';
 import {
   LoginUseCase,
   LogoutUseCase,
   RefreshTokenUseCase,
 } from '../../application/use-cases/login.use-case';
+import { AuthenticatedUser } from '../../infrastructure/strategies/jwt.strategy';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { Roles } from './decorators/roles.decorator';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { AuthUserResponseDto, RegisterDto } from './dto/register.dto';
 import { AuthTokensResponseDto, LoginDto, RefreshTokenDto } from './dto/login.dto';
 
@@ -84,5 +92,26 @@ export class AuthController {
   @ApiResponse({ status: 204 })
   async logout(@Body() dto: RefreshTokenDto): Promise<void> {
     await this.logoutUseCase.execute(dto);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current authenticated user profile' })
+  @ApiResponse({ status: 200, description: 'Current user JWT payload' })
+  me(@CurrentUser() user: AuthenticatedUser): AuthenticatedUser {
+    return user;
+  }
+
+  @Get('admin/check')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.CEO, Role.CTO)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Verify RBAC — admin roles only' })
+  adminCheck(@CurrentUser() user: AuthenticatedUser) {
+    return {
+      message: 'Access granted',
+      role: user.role,
+    };
   }
 }
