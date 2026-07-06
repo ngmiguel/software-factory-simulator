@@ -18,9 +18,14 @@
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "jest --passWithNoTests"
+    "test": "jest",
+    "test:roles": "jest -- roles.spec",
+    "test:constants": "jest -- constants/"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
     "typescript": "^5.7.3"
   }
 }
