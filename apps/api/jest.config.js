@@ -8,6 +8,7 @@ module.exports = {
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',
+  forceExit: true,
   moduleNameMapper: {
     '^@sfs/shared$': '<rootDir>/../../../packages/shared/src',
   },

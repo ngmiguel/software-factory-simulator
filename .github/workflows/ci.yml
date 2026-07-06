@@ -2,34 +2,18 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint-and-test:
+  quality:
+    name: Lint & Typecheck
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: sfs
-          POSTGRES_PASSWORD: sfs_password
-          POSTGRES_DB: software_factory_simulator_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://sfs:sfs_password@localhost:5432/software_factory_simulator_test?schema=public
-      JWT_SECRET: test-secret
-      NODE_ENV: test
-
     steps:
       - uses: actions/checkout@v4
 
@@ -45,17 +29,175 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma client
-        run: pnpm db:generate
-
       - name: Lint
         run: pnpm lint
 
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Test API
-        run: pnpm --filter @sfs/api test
+  test-shared:
+    name: Test — @sfs/shared
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Build
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: '[shared] roles — UserRole enum & ROLE_HIERARCHY'
+        run: pnpm test:shared:roles
+
+      - name: '[shared] all constants tests'
+        run: pnpm test:shared
+
+  test-api-health:
+    name: Test — API / health
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+
+      - name: '[health] HealthController — defined, live probe'
+        run: pnpm test:api:health
+
+  test-api-auth-register:
+    name: Test — API / auth / register
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+
+      - name: '[auth:register] RegisterUserUseCase — success, duplicate email, invalid email, Email VO'
+        run: pnpm test:api:auth:register
+
+  test-api-auth-login:
+    name: Test — API / auth / login
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+
+      - name: '[auth:login] LoginUseCase — valid credentials, invalid credentials'
+        run: pnpm test:api:auth:login
+
+  test-api-auth-rbac:
+    name: Test — API / auth / rbac
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+
+      - name: '[auth:rbac] RolesGuard — no roles, allowed, denied, unauthenticated'
+        run: pnpm test:api:auth:rbac
+
+  test-web:
+    name: Test — @sfs/web
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: '[web:lib] cn — class merging utility'
+        run: pnpm test:web:lib
+
+      - name: '[web] all frontend unit tests'
+        run: pnpm test:web
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs:
+      - test-shared
+      - test-api-health
+      - test-api-auth-register
+      - test-api-auth-login
+      - test-api-auth-rbac
+      - test-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+
+      - name: Build all packages
         run: pnpm build
+
+      - name: Full test suite (smoke)
+        run: pnpm test:all

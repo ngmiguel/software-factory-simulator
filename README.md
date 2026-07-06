@@ -78,6 +78,7 @@ Voir [docs/ROADMAP.md](./docs/ROADMAP.md) pour le détail de chaque phase.
 
 - [Vue d'ensemble architecture](./docs/architecture/OVERVIEW.md)
 - [Roadmap détaillée](./docs/ROADMAP.md)
+- [Guide des tests](./docs/TESTING.md)
 - [ADR — Monorepo](./docs/adr/0001-monorepo-and-clean-architecture.md)
 
 ## Licence
