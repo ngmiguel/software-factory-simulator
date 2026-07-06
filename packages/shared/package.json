@@ -15,8 +15,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
-    "lint": "eslint src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix",
+    "lint": "pnpm exec eslint src --ext .ts",
+    "lint:fix": "pnpm exec eslint src --ext .ts --fix",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "jest",
     "test:roles": "jest -- roles.spec",
