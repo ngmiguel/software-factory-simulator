@@ -13,13 +13,13 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
-import { RegisterUserUseCase } from '../../application/use-cases/register-user.use-case';
+import { RegisterUserUseCase } from '../application/use-cases/register-user.use-case';
 import {
   LoginUseCase,
   LogoutUseCase,
   RefreshTokenUseCase,
-} from '../../application/use-cases/login.use-case';
-import { AuthenticatedUser } from '../../infrastructure/strategies/jwt.strategy';
+} from '../application/use-cases/login.use-case';
+import { AuthenticatedUser } from '../infrastructure/strategies/jwt.strategy';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Roles } from './decorators/roles.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
